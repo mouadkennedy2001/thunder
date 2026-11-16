@@ -616,6 +616,68 @@ html[data-theme='dark'] .theme-toggle .icon-sun { display: inline-block; }
 .settings-actions { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
 .settings-saved { color: var(--green-dark); font-size: 13.5px; }
 
+/* ---------- settings: engine chips ---------- */
+.settings-engines { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.settings-note { margin: 0; font-size: 12.5px; color: var(--muted); }
+.engine-group { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.engine-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--green-dark);
+  min-width: 74px;
+}
+.engine-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  user-select: none;
+}
+.chip:hover { border-color: var(--green); background: var(--green-soft); }
+.chip:has(input:checked) { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); font-weight: 500; }
+.chip input { accent-color: var(--green-dark); margin: 0; }
+
+/* ---------- add-to-browser guide ---------- */
+.add-step { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+.add-step .btn { align-self: flex-start; }
+.add-url-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+.add-url-box code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--green-dark);
+  direction: ltr;
+  word-break: break-all;
+}
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin: 14px 0; }
+.guide-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.guide-card.is-recommended { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+
 /* ================= bottom bar ================= */
 .bottombar {
   display: flex;

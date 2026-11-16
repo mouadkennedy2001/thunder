@@ -183,6 +183,65 @@
     });
   }
 
+  /* ---------- add-to-browser guide page ---------- */
+  const urlCode = document.getElementById('search-url');
+  if (urlCode) {
+    // fill the real address template with the current origin
+    urlCode.textContent = location.origin + urlCode.dataset.tpl;
+
+    // highlight the user's browser card
+    const ua = navigator.userAgent.toLowerCase();
+    const detected = ua.includes('edg/') ? 'edge' : ua.includes('brave') || ua.includes('chrome') ? 'brave' : ua.includes('firefox') ? 'firefox' : ua.includes('chrome') ? 'chrome' : '';
+    const card = detected && document.querySelector(`.guide-card[data-browser="${detected}"]`);
+    if (card) {
+      card.classList.add('is-recommended');
+      card.scrollIntoView({ block: 'nearest' });
+    }
+
+    // brave reports as chrome too — brave users see both cards highlighted
+    if (ua.includes('chrome') && !ua.includes('edg/')) {
+      const chromeCard = document.querySelector('.guide-card[data-browser="chrome"]');
+      if (chromeCard) chromeCard.classList.add('is-recommended');
+    }
+
+    const openBtn = document.getElementById('add-open-home');
+    if (openBtn) openBtn.addEventListener('click', () => (location.href = '/'));
+  }
+
+  /* copy button on the add page */
+  const copyUrl = document.getElementById('copy-url');
+  if (copyUrl) {
+    copyUrl.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(urlCode.textContent);
+      } catch {
+        window.prompt(copyUrl.dataset.toast, urlCode.textContent);
+        return;
+      }
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = copyUrl.dataset.toast;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    });
+  }
+
+  /* settings: engine chips — require at least one checked before saving */
+  const engineForm = document.querySelector('.settings-form');
+  if (engineForm) {
+    engineForm.addEventListener('submit', (e) => {
+      const chips = engineForm.querySelectorAll('input[name="engines"]:checked');
+      if (!chips.length) {
+        e.preventDefault();
+        const note = engineForm.querySelector('.settings-note');
+        if (note) {
+          note.style.color = 'var(--green-dark)';
+          note.style.fontWeight = '600';
+        }
+      }
+    });
+  }
+
   /* settings page: show "saved" flash after redirect */
   const saved = $('#settings-saved');
   if (saved && performance.navigation && performance.navigation.type === 1) {

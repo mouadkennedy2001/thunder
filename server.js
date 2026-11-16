@@ -77,6 +77,11 @@ app.use((req, res, next) => {
   const c = cookies(req);
   const urlLang = typeof req.query.lang === 'string' ? req.query.lang : null;
   const lang = i18n.SUPPORTED.includes(urlLang) ? urlLang : i18n.SUPPORTED.includes(c.th_lang) ? c.th_lang : i18n.negotiate(req.headers['accept-language']);
+  // visiting with ?lang= also persists the choice, so links without ?lang keep it
+  if (urlLang && urlLang !== c.th_lang) setPref(res, 'th_lang', urlLang);
+  // engine selection from settings — absent/empty means "all enabled"
+  const validIds = new Set(engines.ALL_ENGINE_IDS);
+  const chosenIds = c.th_engines ? c.th_engines.split(',').filter((id) => validIds.has(id)) : [];
   const t = i18n.make(lang);
   req.ctx = {
     lang,
@@ -86,6 +91,7 @@ app.use((req, res, next) => {
     safe: c.th_safe !== '0',
     newtab: c.th_newtab !== '0',
     recent: c.th_recent !== '0',
+    enginesOn: chosenIds.length ? new Set(chosenIds) : null,
     ddgLocale: { ar: 'xa-ar', en: 'wt-wt', fr: 'fr-fr' }[lang] || 'wt-wt',
   };
   next();
@@ -122,11 +128,10 @@ app.get('/search', async (req, res) => {
   const cat = ['web', 'images', 'videos', 'news'].includes(req.query.cat) ? req.query.cat : 'web';
   if (!q) return res.redirect('/');
 
-  // "i'm feeling lucky": redirect straight to the first result (no-referrer keeps it private)
+  // "i'm feeling lucky": race the fastest engines for the very first url
   if (req.query.lucky === '1' && cat === 'web') {
     try {
-      const { results } = await engines.runAll(q, 'web', { safe, t: ddgLocale, lang });
-      const first = results.find((r) => /^https?:\/\//.test(r.url));
+      const first = await engines.firstResult(q, { safe, t: ddgLocale, lang, engines: req.ctx.enginesOn });
       if (first) return res.redirect(first.url);
     } catch {
       /* fall through to the normal page */
@@ -135,7 +140,7 @@ app.get('/search', async (req, res) => {
 
   const started = Date.now();
   try {
-    const { results, enginesOk, enginesFailed } = await engines.runAll(q, cat, { safe, t: ddgLocale, lang });
+    const { results, enginesOk, enginesFailed } = await engines.runAll(q, cat, { safe, t: ddgLocale, lang, engines: req.ctx.enginesOn });
     const took = Date.now() - started;
     const instant = cat === 'web' ? instantAnswer(q) : null;
     res.send(view.searchPage(t, { lang, dir, theme, q, cat, results, enginesOk, enginesFailed, took, instant }));
@@ -217,14 +222,18 @@ app.get('/proxy', async (req, res) => {
 
 /* ---------- settings ---------- */
 app.get('/settings', (req, res) => {
-  const { t, lang, dir, theme, safe, newtab, recent } = req.ctx;
-  res.send(view.settingsPage(t, { lang, dir, theme, safe, newtab, recent }));
+  const { t, lang, dir, theme, safe, newtab, recent, enginesOn } = req.ctx;
+  res.send(view.settingsPage(t, { lang, dir, theme, safe, newtab, recent, enginesOn }));
 });
 
 app.post('/settings/save', express.urlencoded({ extended: false }), (req, res) => {
   const { lang: bodyLang, theme: bodyTheme } = req.body;
   const lang = i18n.SUPPORTED.includes(bodyLang) ? bodyLang : req.ctx.lang;
   const theme = ['light', 'dark', 'auto'].includes(bodyTheme) ? bodyTheme : req.ctx.theme;
+  // engine selection: unchecked-all keeps the default (everything on)
+  const picked = Array.isArray(req.body.engines) ? req.body.engines : req.body.engines ? [req.body.engines] : [];
+  const valid = picked.filter((id) => engines.ALL_ENGINE_IDS.includes(id));
+  setPref(res, 'th_engines', valid.length === engines.ALL_ENGINE_IDS.length ? '' : valid.join(','));
   setPref(res, 'th_lang', lang);
   setPref(res, 'th_theme', theme);
   setPref(res, 'th_safe', req.body.safe === '0' ? '0' : '1');
@@ -248,11 +257,36 @@ app.get('/favicon.svg', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.svg'));
 });
 
+/* ---------- open search descriptor: browsers auto-discover thunder ---------- */
+app.get('/opensearch.xml', (req, res) => {
+  const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+  const proto = req.headers['x-forwarded-proto'] || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https');
+  res.type('application/opensearchdescription+xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>thunder</ShortName>
+  <Description>thunder — private metasearch. no logs, no trackers, no profiles.</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image width="16" height="16">${proto}://${host}/favicon.svg</Image>
+  <Url type="text/html" method="get" template="${proto}://${host}/search?q={searchTerms}"/>
+</OpenSearchDescription>`);
+});
+
+/* ---------- "make thunder your default engine" guide ---------- */
+app.get('/add-to-browser', (req, res) => {
+  const { t, lang, dir, theme } = req.ctx;
+  res.send(view.addPage(t, { lang, dir, theme }));
+});
+
 app.use((req, res) => {
   const { t, lang, dir, theme } = req.ctx;
   res.status(404).send(view.errorPage(t, { lang, dir, theme, title: '404', message: t('results_none_body') }));
 });
 
-app.listen(PORT, () => {
-  console.log(`⚡ thunder is running on http://localhost:${PORT} — no logs, no trackers.`);
-});
+/* ---------- boot ----------
+   on vercel the app is imported as a serverless module — never listen there. */
+module.exports = app;
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`⚡ thunder is running on http://localhost:${PORT} — no logs, no trackers.`);
+  });
+}
