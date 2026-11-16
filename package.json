@@ -1,0 +1,19 @@
+{
+  "name": "thunder-search",
+  "version": "1.0.0",
+  "description": "thunder — a private, multi-engine metasearch engine. no logs, no trackers, no profiles, no income.",
+  "main": "server.js",
+  "author": "zerouki ahmed mouad (زروقي أحمد معاذ)",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "undici": "^6.19.0"
+  }
+}
